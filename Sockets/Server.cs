@@ -18,29 +18,31 @@ namespace Sockets
     {
         public static ManualResetEvent allDone = new ManualResetEvent(false);
 
+        public static bool listen;
+
         public Server()
         {
         }
 
         public static void StartListening()
         {
-            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-            IPAddress ipAddress = ipHostInfo.AddressList[0];
+            IPAddress ipAddress = IPAddress.Parse("192.168.0.20");
             IPEndPoint localEndPoint = new IPEndPoint(ipAddress, Consola.puerto);
 
             Socket listener = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
+            Console.WriteLine("Waiting for a connection on " + ipAddress +":" +Consola.puerto);
             try
             {
                 listener.Bind(localEndPoint);
-                listener.Listen(10);
-
-                while (true)
+                listener.Listen(100);
+                Console.CancelKeyPress += new ConsoleCancelEventHandler(Exit);
+                while (listen != false)
                 {
                     allDone.Reset();
 
-                    Console.WriteLine("Waiting for a connection...");
                     listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
+
+                    allDone.WaitOne();
                 }
             }
             catch (Exception e)
@@ -66,16 +68,56 @@ namespace Sockets
         {
             string content = string.Empty;
 
-            StateObject state = (StateObject)ar.AsyncState;
+            StateObject state = (StateObject) ar.AsyncState;
             Socket handler = state.WorkSocket;
 
-            content = state.sb.ToString();
+            int bytesRead = handler.EndReceive(ar);
 
-            if (true)
+            if (bytesRead > 0)
             {
+                state.sb.Append(Encoding.ASCII.GetString(state.buffer, 0, bytesRead));
+
+
+                    Console.WriteLine("{0} {1}",bytesRead,state.sb);
+                   // Send(handler,content);
 
             }
 
+        }
+
+        public static void Send(Socket handler, string data)
+        {
+            byte[] byteData = Encoding.ASCII.GetBytes(data);
+
+            handler.BeginSend(byteData, 0, byteData.Length, 0, new AsyncCallback(SendCallback), handler);
+        }
+
+        public static void SendCallback(IAsyncResult ar)
+        {
+            try
+            {
+                Socket handler = (Socket) ar.AsyncState;
+
+                int bytesSent = handler.EndSend(ar);
+
+                Console.WriteLine("Sent {0}",bytesSent);
+
+                handler.Shutdown(SocketShutdown.Both);
+                handler.Close();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        protected static void Exit(object sender, ConsoleCancelEventArgs args)
+        {
+            var asyncCallback = new AsyncCallback(SendCallback);
+            Console.WriteLine("Listening stopped...");
+            listen = false;
+            allDone.Set();
         }
     }
 }

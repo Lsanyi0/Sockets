@@ -6,21 +6,30 @@ namespace Sockets
     {
         public static int puerto = 444;
         public const int BufferSize = 1024;
-        static void Main(string[] args)
+
+        private static void Main(string[] args)
         {
             var cmd = Console.ReadLine();
             while (cmd != "exit")
             {
                 switch (cmd)
                 {
-                    case "cn":
+                    case "cn clt":
                         Cliente.StartClient();
+                        break;
+                    case "cn srv":
+                        Server.listen=true;
+                        Server.allDone.Reset();
+                        Server.StartListening();
                         break;
                     case "clr":
                         Console.Clear();
                         break;
                     default:
-                        Console.WriteLine("El comando " + cmd + " no es conocido");
+                        if (!string.IsNullOrEmpty(cmd))
+                        {
+                            Console.WriteLine("El comando " + cmd + " no fue encontrado");
+                        }
                         break;
                 }
                 cmd = Console.ReadLine();
